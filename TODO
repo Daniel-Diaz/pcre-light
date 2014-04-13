@@ -1,0 +1,2 @@
+* backwards compatibility with older libpcres (e.g. pcre3 on debian)
+* some tests fail for strange reasons
