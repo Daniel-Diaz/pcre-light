@@ -20,7 +20,7 @@ maintainer:      none
 cabal-version: >= 1.2.0
 build-type:      Configure
 tested-with:     GHC ==7.8.2, GHC ==6.8.2, GHC ==6.6.1, GHC ==6.12.1, Hugs ==2005
-extra-source-files: configure, pcre-light.buildinfo.in
+extra-source-files: configure, pcre-light.buildinfo.in, README.md
 extra-tmp-files:    pcre-light.buildinfo
 
 flag small_base
