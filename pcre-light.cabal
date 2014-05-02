@@ -1,5 +1,5 @@
 name:            pcre-light
-version:         0.4.0.1
+version:         0.4.0.2
 homepage:        https://github.com/Daniel-Diaz/pcre-light
 synopsis:        A small, efficient and portable regex library for Perl 5 compatible regular expressions
 description:
@@ -19,12 +19,12 @@ author:          Don Stewart
 maintainer:      Daniel Díaz <dhelta.diaz@gmail.com>
 cabal-version: >= 1.2.0
 build-type:      Configure
-tested-with:     GHC ==7.8.2, GHC ==6.8.2, GHC ==6.6.1, GHC ==6.12.1
+tested-with:     GHC == 7.8.2
 extra-source-files: configure, pcre-light.buildinfo.in, README.md
 extra-tmp-files:    pcre-light.buildinfo
 
-flag small_base
-  description: Build with new smaller base library
+flag old_base
+  description: Build with an old version of base (< 3)
   default:     False
 
 library
@@ -34,10 +34,10 @@ library
 
     extensions:      CPP, ForeignFunctionInterface
 
-    if flag(small_base)
-        build-depends: base >= 3 && <= 5, bytestring >= 0.9
-    else
+    if flag(old_base)
         build-depends: base < 3
+    else
+        build-depends: base >= 3 && <= 5, bytestring >= 0.9
 
     extra-libraries: pcre
 
