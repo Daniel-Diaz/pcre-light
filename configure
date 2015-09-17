@@ -4,6 +4,6 @@
 # subst standard header path variables
 if test -n "$CPPFLAGS" ; then
     echo "Found CPPFLAGS in environment: '$CPPFLAGS'"
-    sed 's,@CPPFLAGS@,'"$CPPFLAGS"',g;s,@LDFLAGS@,'"$LDFLAGS"',g'  \
+    sed 's#@CPPFLAGS@#'"$CPPFLAGS"'#g;s#@LDFLAGS@#'"$LDFLAGS"'#g'  \
         < pcre-light.buildinfo.in > pcre-light.buildinfo
 fi
