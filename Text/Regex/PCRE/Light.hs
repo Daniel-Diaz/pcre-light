@@ -85,11 +85,13 @@ import qualified Data.ByteString.Base     as S
 -- must be imported from System.IO.Unsafe, since
 -- its removal from Foreign.
 #if MIN_VERSION_base(4,7,0)
-import System.IO.Unsafe (unsafePerformIO)
+
 #endif
 
+import System.IO.Unsafe (unsafePerformIO)
+
 -- Foreigns
-import Foreign
+import Foreign (newForeignPtr, withForeignPtr)
 import Foreign.Ptr
 import Foreign.C.Types
 import Foreign.C.String
