@@ -81,13 +81,6 @@ import qualified Data.ByteString.Unsafe   as S
 import qualified Data.ByteString.Base     as S
 #endif
 
--- From ghc-7.8 (base-4.7.0.0), unsafePerformIO
--- must be imported from System.IO.Unsafe, since
--- its removal from Foreign.
-#if MIN_VERSION_base(4,7,0)
-
-#endif
-
 import System.IO.Unsafe (unsafePerformIO)
 
 -- Foreigns
