@@ -20,8 +20,7 @@ maintainer:      Daniel Díaz <dhelta.diaz@gmail.com>
 cabal-version: >= 1.2.0
 build-type:      Simple
 tested-with:     GHC == 7.8.3
-extra-source-files: configure, pcre-light.buildinfo.in, README.md
-extra-tmp-files:    pcre-light.buildinfo
+extra-source-files: README.md
 
 flag old_base
   description: Build with an old version of base (< 3)
