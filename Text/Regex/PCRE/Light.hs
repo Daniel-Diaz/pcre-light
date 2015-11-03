@@ -84,7 +84,7 @@ import qualified Data.ByteString.Base     as S
 -- From ghc-7.8 (base-4.7.0.0), unsafePerformIO
 -- must be imported from System.IO.Unsafe, since
 -- its removal from Foreign.
-#if __GLASGOW_HASKELL__ >= 708
+#if MIN_VERSION_base(4,7,0)
 import System.IO.Unsafe (unsafePerformIO)
 #endif
 
