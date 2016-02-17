@@ -96,6 +96,13 @@ matrix:
 before_install:
 # Using compiler above sets CC to an invalid value, so unset it
 - unset CC
+- |
+  if [ `uname` = "Darwin" ]
+  then
+    brew update
+    brew install pcre
+    export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/opt/X11/lib/pkgconfig
+  fi
 
 # We want to always allow newer versions of packages when building on GHC HEAD
 - CABALARGS=""
