@@ -280,15 +280,23 @@ match (Regex pcre_fp _) subject os = unsafePerformIO $ do
 
         let (str_fp, off, len) = S.toForeignPtr subject
         withForeignPtr str_fp $ \cstr -> do
-            r <- c_pcre_exec
+            let exec csub clen = c_pcre_exec
                          pcre_ptr
                          nullPtr
-                         (cstr `plusPtr` off) -- may contain binary zero bytes.
-                         (fromIntegral len)
+                         csub -- may contain binary zero bytes.
+                         (fromIntegral clen)
                          0
                          (combineExecOptions os)
                          ovec
                          (fromIntegral ovec_size)
+
+            -- An empty ByteString may be represented with a nullPtr.  Passing
+            -- a nullPtr to pcre_exec will cause it to return an error, even if
+            -- the pattern could succesfully match an empty subject. As a
+            -- workaround, allocate a small buffer and pass that to pcre_exec.
+            r <- if cstr == nullPtr
+                then allocaBytes 1 $ \buf -> exec buf 0
+                else exec (cstr `plusPtr` off) len
 
             if r < 0 -- errors, or error_no_match
                 then return Nothing
