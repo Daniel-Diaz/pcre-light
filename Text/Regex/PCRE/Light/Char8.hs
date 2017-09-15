@@ -22,6 +22,7 @@ module Text.Regex.PCRE.Light.Char8 (
         -- * String interface
         , compile, compileM
         , match
+        , captureNames
 
         -- * Regex types and constructors externally visible
 
@@ -69,7 +70,7 @@ module Text.Regex.PCRE.Light.Char8 (
 
 import qualified Data.ByteString.Char8 as S
 import qualified Text.Regex.PCRE.Light as S
-import Text.Regex.PCRE.Light hiding (match, compile, compileM)
+import Text.Regex.PCRE.Light hiding (match, compile, compileM, captureNames)
 
 -- | 'compile'
 --
@@ -203,3 +204,11 @@ match r subject os =
            Nothing -> Nothing
            Just x  -> Just (map S.unpack x)
 {-# INLINE match #-}
+
+
+-- | 'captureNames'
+--
+-- Returns the names and numbers of all named subpatterns in the regular
+-- expression. The list is in alphabetical order.
+captureNames :: Regex -> [(String, Int)]
+captureNames r = map (\(n,i) -> (S.unpack n, i)) $ S.captureNames r

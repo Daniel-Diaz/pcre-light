@@ -24,6 +24,7 @@ module Text.Regex.PCRE.Light (
         , compile, compileM
         , match
         , captureCount
+        , captureNames
 
         -- * Regex types and constructors externally visible
 
@@ -267,7 +268,7 @@ compileM str os = unsafePerformIO $
 match :: Regex -> S.ByteString -> [PCREExecOption] -> Maybe [S.ByteString]
 match (Regex pcre_fp _) subject os = unsafePerformIO $ do
   withForeignPtr pcre_fp $ \pcre_ptr -> do
-    n_capt <- captureCount' pcre_ptr
+    n_capt <- fullInfoInt pcre_ptr info_capturecount
 
     -- The smallest  size  for ovector that will allow for n captured
     -- substrings, in addition to the offsets  of  the  substring
@@ -325,12 +326,48 @@ match (Regex pcre_fp _) subject os = unsafePerformIO $ do
             end   = S.unsafeTake (fromIntegral (b-a)) start
 
 
-captureCount :: Regex -> Int
-captureCount (Regex pcre_fp _) = unsafePerformIO $ do
-  withForeignPtr pcre_fp $ \pcre_ptr -> do
-    captureCount' pcre_ptr
+-- Wrapper around c_pcre_fullinfo for integer values
+fullInfoInt pcre_ptr what =
+  alloca $ \n_ptr -> do
+    c_pcre_fullinfo pcre_ptr nullPtr what n_ptr
+    return . fromIntegral =<< peek (n_ptr :: Ptr CInt)
 
-captureCount' pcre_fp =
-    alloca $ \n_ptr -> do -- (st :: Ptr CInt)
-      c_pcre_fullinfo pcre_fp nullPtr info_capturecount n_ptr
-      return . fromIntegral =<< peek (n_ptr :: Ptr CInt)
+
+captureCount :: Regex -> Int
+captureCount (Regex pcre_fp _) = unsafePerformIO $
+  withForeignPtr pcre_fp $ \pcre_ptr ->
+    fullInfoInt pcre_ptr info_capturecount
+
+
+-- | 'captureNames'
+--
+-- Returns the names and numbers of all named subpatterns in the regular
+-- expression. The list is in alphabetical order.
+captureNames :: Regex -> [(S.ByteString, Int)]
+captureNames (Regex pcre_fp _) = unsafePerformIO $
+  withForeignPtr pcre_fp $ \pcre_ptr -> do
+    count     <- fullInfoInt pcre_ptr info_namecount
+    entrysize <- fullInfoInt pcre_ptr info_nameentrysize
+
+    buf <- alloca $ \n_ptr -> do
+      c_pcre_fullinfo pcre_ptr nullPtr info_nametable n_ptr
+      buf <- peek n_ptr
+      S.packCStringLen (buf, count*entrysize)
+
+    return $ split entrysize buf
+
+  where
+    -- Split the nametable buffer into entries. Each entry has a fixed size in
+    -- bytes. The first two bytes in each entry store the pattern number in
+    -- big-endian format, the bytes following that contain the nul-terminated
+    -- name of the subpattern.
+    split :: Int -> S.ByteString -> [(S.ByteString, Int)]
+    split entrysize buf
+      | S.null buf = []
+      | otherwise =
+        let
+          (entry, tail) = S.splitAt entrysize buf
+          idx = fromIntegral . S.index entry
+          num = idx 0 * 256 + idx 1
+          name = S.takeWhile (/= 0) $ S.drop 2 entry
+        in (name, num) : split entrysize tail
