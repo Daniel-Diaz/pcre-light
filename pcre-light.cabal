@@ -26,6 +26,10 @@ flag old_base
   description: Build with an old version of base (< 3)
   default:     False
 
+flag use-pkg-config
+  default: False
+  manual:  True
+
 library
     exposed-modules: Text.Regex.PCRE.Light
                      Text.Regex.PCRE.Light.Char8
@@ -38,5 +42,8 @@ library
     else
         build-depends: base >= 3 && <= 5, bytestring >= 0.9
 
-    pkgconfig-depends: libpcre
+    if flag(use-pkg-config)
+      pkgconfig-depends: libpcre
+    else
+      extra-Libraries: pcre
 
