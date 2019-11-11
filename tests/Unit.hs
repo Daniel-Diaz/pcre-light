@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-import Text.Regex.PCRE.Light (compile,compileM,match)
+import Text.Regex.PCRE.Light (compile,compileM,match,captureNames,captureCount)
 import qualified Text.Regex.PCRE.Light.Char8 as String (compile,compileM,match)
 import Text.Regex.PCRE.Light.Base
 
@@ -67,6 +67,18 @@ testRegex regex options inputs outputs = testLabel regex $
             and [ String.match r i [] == o
                 | (i,o) <- zip (map (S.unpack) inputs)
                                (map (fmap (map S.unpack)) outputs) ]
+
+testCaptures :: Int
+     -> S.ByteString
+     -> [(S.ByteString, Int)]
+     -> Test
+testCaptures expectedTotalCaptures regex expectedCaptureNames = testLabel regex $
+    TestCase $ do
+        r <- case compileM regex [] of
+            Left s -> assertFailure ("ERROR in ByteString in compileM " ++ s)
+            Right r -> return r
+        assertEqual' "Capture group name mismatch" expectedCaptureNames (captureNames r)
+        assertEqual' "Capture count mismatch" expectedTotalCaptures (captureCount r)
 
 main :: IO ()
 main = do counts <- runTestTT tests
@@ -4455,5 +4467,43 @@ tests = TestList
          Nothing,
          Nothing]
 
+    -- named capture group tests
+    , -- Handles cases with no capture groups
+    testCaptures 0 "no capture groups" []
+
+    , -- Properly labels capture groups
+    testCaptures 1 "(?<first>first capture group)" [("first", 0)]
+
+    , -- Doesn't return labels for unnamed groups
+    testCaptures 1 "(doesn't return unnamed groups)" []
+
+    , -- Counts but doesn't return unnamed groups
+    testCaptures 3 "(?<one>abc) (def) (?<three>ghi)" [("one", 0), ("three", 2)]
+
+    , -- Doesn't count non-capturing groups
+    testCaptures 1 "(?:abc) (?<named>def)" [("named", 0)]
+
+    , -- Doesn't count named back-references
+    testCaptures 2 "(?<first>abc) (?P=first) (?<second>def)" [("first", 0), ("second", 1)]
+
+    , -- Test alternate group naming syntaxes
+    testCaptures 3 "(?'first'abc) (?P<second>def) (?<third>ghi)" [("first", 0), ("second", 1), ("third", 2)]
+
+    , -- Groups are returned in numeric order
+    testCaptures 3 "(?'c'0) (?P<b>1) (?<a>2)" [("c", 0), ("b", 1), ("a", 2)]
+
+    , -- Handles alternation between groups
+    testCaptures 2 "(?<optionA>abc)|(?<optionB>def)" [("optionA", 0), ("optionB", 1)]
+
+    , -- Labels optional groups
+    testCaptures 2 "(?<named>abc)(?<optional>def)?" [("named", 0), ("optional", 1)]
+
+    , -- Handles nested named groups
+    testCaptures 3 "(?<named>a(?<nested>b)c) (?<unnested>d)" [("named", 0), ("nested", 1), ("unnested", 2)]
+
+    , testLabel "compile failure on duplicate named groups" $
+            TestCase $ (assertEqual' "compile failure on duplicate named groups"
+                         (Left ("two named subpatterns have the same name"))
+                         (compileM "(?<dup>abc) (?<dup>def)" []))
 
  ]
