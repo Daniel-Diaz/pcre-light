@@ -17,11 +17,12 @@ import qualified Data.Map as M
 import System.IO.Unsafe
 import Control.Exception
 import Control.Monad.Except
+import GHC.Stack
 
 assertBool' :: S.ByteString -> Bool -> Assertion
 assertBool'  s = assertBool  (S.unpack s)
 
-assertEqual' :: S.ByteString -> Int -> Int -> Assertion
+assertEqual' :: (Eq a, Show a) => S.ByteString -> a -> a -> Assertion
 assertEqual' s = assertEqual (S.unpack s)
 
 testLabel :: S.ByteString -> Test -> Test
@@ -67,14 +68,11 @@ testRegex regex options inputs outputs = testLabel regex $
                 | (i,o) <- zip (map (S.unpack) inputs)
                                (map (fmap (map S.unpack)) outputs) ]
 
--- testCaptures :: S.ByteString
---      -> [(S.ByteString, Int)]
---      -> Test
--- testCaptures = undefined
-
+main :: IO ()
 main = do counts <- runTestTT tests
           when (errors counts > 0 || failures counts > 0) exitFailure
 
+tests :: Test
 tests = TestList
 
     [ testRegex "the quick brown fox" []
@@ -94,12 +92,11 @@ tests = TestList
                 Left ("nothing to repeat" ) == compileM "*" [])
 
     , testLabel "compile failure" $
-            TestCase $ (assertBool' "compile failure" =<< (return $
-                    (Just ("Text.Regex.PCRE.Light: Error in regex: nothing to repeat"))
-                    ==
-                    (unsafePerformIO $ do
-                        handle (\e -> return (Just (S.pack $ show (e :: SomeException))))
-                               (compile "*" [] `seq` return Nothing))))
+            TestCase $ (assertEqual' "compile failure"
+                            (Just ("Text.Regex.PCRE.Light: Error in regex: nothing to repeat"))
+                            (fmap (head . S.lines) . unsafePerformIO $ do
+                                handle (\e -> return (Just (S.pack $ displayException (e :: SomeException))))
+                                    (compile "*" [] `seq` return Nothing)))
 
 --  , testRegex "\0*" [] -- the embedded null in the pattern seems to be a problem
 --      ["\0\0\0\0"]
