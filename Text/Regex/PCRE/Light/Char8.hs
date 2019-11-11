@@ -9,7 +9,7 @@
 -- Portability: H98 + FFI
 --
 --------------------------------------------------------------------
--- 
+--
 -- A simple, portable binding to perl-compatible regular expressions
 -- (PCRE) via 8-bit latin1 Strings.
 --
@@ -22,6 +22,7 @@ module Text.Regex.PCRE.Light.Char8 (
         -- * String interface
         , compile, compileM
         , match
+        , S.captureCount
         , captureNames
 
         -- * Regex types and constructors externally visible
@@ -78,7 +79,7 @@ import Text.Regex.PCRE.Light hiding (match, compile, compileM, captureNames)
 -- The arguments are:
 --
 -- * 'pat': A ByteString, which may or may not be zero-terminated,
--- containing the regular expression to be compiled. 
+-- containing the regular expression to be compiled.
 --
 -- * 'flags', optional bit flags. If 'Nothing' is provided, defaults are used.
 --
@@ -126,15 +127,15 @@ import Text.Regex.PCRE.Light hiding (match, compile, compileM, captureNames)
 --
 -- * 'no_utf8_check'   - Do not check the pattern for UTF-8 validity
 --
--- If compilation of the pattern fails, the 'Left' constructor is 
+-- If compilation of the pattern fails, the 'Left' constructor is
 -- returned with the error string. Otherwise an abstract type
 -- representing the compiled regular expression is returned.
 -- The regex is allocated via malloc on the C side, and will be
 -- deallocated by the runtime when the Haskell value representing it
 -- goes out of scope.
 --
--- As regexes are often defined statically, GHC will compile them 
--- to null-terminated, strict C strings, enabling compilation of the 
+-- As regexes are often defined statically, GHC will compile them
+-- to null-terminated, strict C strings, enabling compilation of the
 -- pattern without copying. This may be useful for very large patterns.
 --
 -- See man pcreapi for more details.
@@ -209,6 +210,10 @@ match r subject os =
 -- | 'captureNames'
 --
 -- Returns the names and numbers of all named subpatterns in the regular
--- expression. The list is in alphabetical order.
+-- expression. Groups are zero-indexed. Unnamed groups are counted, but don't appear in the
+-- result list.
+--
+-- >>> captureNames (compile "(?<one>abc) (def) (?<three>ghi)")
+-- [("one", 0), ("three", 2)]
 captureNames :: Regex -> [(String, Int)]
 captureNames r = map (\(n,i) -> (S.unpack n, i)) $ S.captureNames r
