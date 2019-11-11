@@ -17,7 +17,6 @@ import qualified Data.Map as M
 import System.IO.Unsafe
 import Control.Exception
 import Control.Monad.Except
-import GHC.Stack
 
 assertBool' :: S.ByteString -> Bool -> Assertion
 assertBool'  s = assertBool  (S.unpack s)
@@ -3907,8 +3906,6 @@ tests = TestList
         ["ZABCDEFG"]
         [Just ["", ""]]
     ,
-
-
 
     -- testRegex "^[a-\\d]" []
     --     ["abcde",
