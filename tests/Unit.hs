@@ -3907,19 +3907,6 @@ tests = TestList
         [Just ["", ""]]
     ,
 
-    -- testRegex "^[a-\\d]" []
-    --     ["abcde",
-    --      "-things",
-    --      "0digit",
-    --      "*** Failers",
-    --      "bcdef    "]
-    --     [Just ["a"],
-    --      Just ["-"],
-    --      Just ["0"],
-    --      Nothing,
-    --      Nothing]
-    -- ,
-
     testRegex "\\Qabc\\$xyz\\E" []
         ["abc\\$xyz"]
         [Just ["abc\\$xyz"]]
