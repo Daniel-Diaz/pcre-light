@@ -1,5 +1,5 @@
 name: pcre-light
-version: 0.4.0.4
+version: 0.4.1.0
 homepage: https://github.com/Daniel-Diaz/pcre-light
 synopsis: Portable regex library for Perl 5 compatible regular expressions
 description:
