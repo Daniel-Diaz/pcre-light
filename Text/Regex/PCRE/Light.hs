@@ -10,7 +10,7 @@
 -- Portability: H98 + CPP
 --
 --------------------------------------------------------------------
--- 
+--
 -- A simple, portable binding to perl-compatible regular expressions
 -- (PCRE) via strict ByteStrings.
 --
@@ -24,6 +24,7 @@ module Text.Regex.PCRE.Light (
         , compile, compileM
         , match
         , captureCount
+        , captureNames
 
         -- * Regex types and constructors externally visible
 
@@ -82,6 +83,8 @@ import qualified Data.ByteString.Base     as S
 #endif
 
 import System.IO.Unsafe (unsafePerformIO)
+import Data.List (sortBy)
+import Data.Function (on)
 
 -- Foreigns
 import Foreign (newForeignPtr, withForeignPtr)
@@ -105,7 +108,7 @@ import Foreign.Marshal.Alloc
 -- > let r = compile "^(b+|a){1,2}?bc" []
 --
 -- If the regular expression is invalid, an exception is thrown.
--- If this is unsuitable, 'compileM' is availlable, which returns failure 
+-- If this is unsuitable, 'compileM' is availlable, which returns failure
 -- in a monad.
 --
 -- To do case insentive matching,
@@ -119,7 +122,7 @@ import Foreign.Marshal.Alloc
 --
 -- The arguments are:
 --
--- * 'pat': A ByteString containing the regular expression to be compiled. 
+-- * 'pat': A ByteString containing the regular expression to be compiled.
 --
 -- * 'flags', optional bit flags. If 'Nothing' is provided, defaults are used.
 --
@@ -267,7 +270,7 @@ compileM str os = unsafePerformIO $
 match :: Regex -> S.ByteString -> [PCREExecOption] -> Maybe [S.ByteString]
 match (Regex pcre_fp _) subject os = unsafePerformIO $ do
   withForeignPtr pcre_fp $ \pcre_ptr -> do
-    n_capt <- captureCount' pcre_ptr
+    n_capt <- fullInfoInt pcre_ptr info_capturecount
 
     -- The smallest  size  for ovector that will allow for n captured
     -- substrings, in addition to the offsets  of  the  substring
@@ -311,7 +314,7 @@ match (Regex pcre_fp _) subject os = unsafePerformIO $ do
     -- pair is used for the first capturing subpattern,  and  so on.  The
     -- value returned  by pcre_exec() is one more than the highest num- bered
     -- pair that has been set. For  example,  if  two  sub- strings  have been
-    -- captured, the returned value is 3. 
+    -- captured, the returned value is 3.
 
   where
     -- The first element of a pair is set  to  the offset of the first
@@ -325,12 +328,62 @@ match (Regex pcre_fp _) subject os = unsafePerformIO $ do
             end   = S.unsafeTake (fromIntegral (b-a)) start
 
 
-captureCount :: Regex -> Int
-captureCount (Regex pcre_fp _) = unsafePerformIO $ do
-  withForeignPtr pcre_fp $ \pcre_ptr -> do
-    captureCount' pcre_ptr
+-- Wrapper around c_pcre_fullinfo for integer values
+fullInfoInt pcre_ptr what =
+  alloca $ \n_ptr -> do
+    c_pcre_fullinfo pcre_ptr nullPtr what n_ptr
+    return . fromIntegral =<< peek (n_ptr :: Ptr CInt)
 
-captureCount' pcre_fp =
-    alloca $ \n_ptr -> do -- (st :: Ptr CInt)
-      c_pcre_fullinfo pcre_fp nullPtr info_capturecount n_ptr
-      return . fromIntegral =<< peek (n_ptr :: Ptr CInt)
+
+-- | 'captureCount'
+--
+-- Returns the number of captures in a 'Regex'. Correctly ignores non-capturing groups
+-- like @(?:abc)@.
+--
+-- >>> captureCount (compile "(?<one>abc) (def) (?:non-captured) (?<three>ghi)" [])
+-- 3
+captureCount :: Regex -> Int
+captureCount (Regex pcre_fp _) = unsafePerformIO $
+  withForeignPtr pcre_fp $ \pcre_ptr ->
+    fullInfoInt pcre_ptr info_capturecount
+
+
+-- | 'captureNames'
+--
+-- Returns the names and numbers of all named subpatterns in the regular
+-- expression. Groups are zero-indexed. Unnamed groups are counted, but don't appear in the
+-- result list.
+--
+-- >>> captureNames (compile "(?<one>abc) (def) (?<three>ghi)")
+-- [("one", 0), ("three", 2)]
+captureNames :: Regex -> [(S.ByteString, Int)]
+captureNames (Regex pcre_fp _) = unsafePerformIO $
+  withForeignPtr pcre_fp $ \pcre_ptr -> do
+    count     <- fullInfoInt pcre_ptr info_namecount
+    entrysize <- fullInfoInt pcre_ptr info_nameentrysize
+
+    buf <- alloca $ \n_ptr -> do
+      c_pcre_fullinfo pcre_ptr nullPtr info_nametable n_ptr
+      buf <- peek n_ptr
+      S.packCStringLen (buf, count*entrysize)
+
+    let results = split entrysize buf
+        zeroIndexed = fmap (subtract 1) <$> results
+        sorted = sortBy (compare `on` snd) zeroIndexed
+    return sorted
+
+  where
+    -- Split the nametable buffer into entries. Each entry has a fixed size in
+    -- bytes. The first two bytes in each entry store the pattern number in
+    -- big-endian format, the bytes following that contain the nul-terminated
+    -- name of the subpattern.
+    split :: Int -> S.ByteString -> [(S.ByteString, Int)]
+    split entrysize buf
+      | S.null buf = []
+      | otherwise =
+        let
+          (entry, tail) = S.splitAt entrysize buf
+          idx = fromIntegral . S.index entry
+          num = idx 0 * 256 + idx 1
+          name = S.takeWhile (/= 0) $ S.drop 2 entry
+        in (name, num) : split entrysize tail

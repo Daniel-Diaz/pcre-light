@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-import Text.Regex.PCRE.Light (compile,compileM,match)
+import Text.Regex.PCRE.Light (compile,compileM,match,captureNames,captureCount)
 import qualified Text.Regex.PCRE.Light.Char8 as String (compile,compileM,match)
-import Text.Regex.PCRE.Light.Base 
+import Text.Regex.PCRE.Light.Base
 
 import qualified Data.ByteString.Char8 as S
 import System.IO
@@ -15,17 +15,17 @@ import Data.Either
 import qualified Data.Map as M
 
 import System.IO.Unsafe
-import Control.OldException
-import Control.Monad.Error
+import Control.Exception
+import Control.Monad.Except
 
+assertBool' :: S.ByteString -> Bool -> Assertion
 assertBool'  s = assertBool  (S.unpack s)
+
+assertEqual' :: (Eq a, Show a) => S.ByteString -> a -> a -> Assertion
 assertEqual' s = assertEqual (S.unpack s)
 
+testLabel :: S.ByteString -> Test -> Test
 testLabel  s = TestLabel (S.unpack s)
-
-instance Error S.ByteString where
-    noMsg = S.empty
-    strMsg = S.pack
 
 testRegex :: S.ByteString
      -> [PCREOption]
@@ -67,9 +67,23 @@ testRegex regex options inputs outputs = testLabel regex $
                 | (i,o) <- zip (map (S.unpack) inputs)
                                (map (fmap (map S.unpack)) outputs) ]
 
+testCaptures :: Int
+     -> S.ByteString
+     -> [(S.ByteString, Int)]
+     -> Test
+testCaptures expectedTotalCaptures regex expectedCaptureNames = testLabel regex $
+    TestCase $ do
+        r <- case compileM regex [] of
+            Left s -> assertFailure ("ERROR in ByteString in compileM " ++ s)
+            Right r -> return r
+        assertEqual' "Capture group name mismatch" expectedCaptureNames (captureNames r)
+        assertEqual' "Capture count mismatch" expectedTotalCaptures (captureCount r)
+
+main :: IO ()
 main = do counts <- runTestTT tests
           when (errors counts > 0 || failures counts > 0) exitFailure
 
+tests :: Test
 tests = TestList
 
     [ testRegex "the quick brown fox" []
@@ -89,12 +103,11 @@ tests = TestList
                 Left ("nothing to repeat" ) == compileM "*" [])
 
     , testLabel "compile failure" $
-            TestCase $ (assertBool' "compile failure" =<< (return $
-                    (Just ("Text.Regex.PCRE.Light: Error in regex: nothing to repeat"))
-                    ==
-                    (unsafePerformIO $ do
-                        handle (\e -> return (Just (S.pack $ show e)))
-                               (compile "*" [] `seq` return Nothing))))
+            TestCase $ (assertEqual' "compile failure"
+                            (Just ("Text.Regex.PCRE.Light: Error in regex: nothing to repeat"))
+                            (fmap (head . S.lines) . unsafePerformIO $ do
+                                handle (\e -> return (Just (S.pack $ displayException (e :: SomeException))))
+                                    (compile "*" [] `seq` return Nothing)))
 
 --  , testRegex "\0*" [] -- the embedded null in the pattern seems to be a problem
 --      ["\0\0\0\0"]
@@ -3658,7 +3671,7 @@ tests = TestList
          "*** Failers",
          "blah)",
          "(blah"]
-        [Just ["(blah)", "(", ")"], 
+        [Just ["(blah)", "(", ")"],
          Just ["blah"],
          Nothing,
          Nothing,
@@ -3892,21 +3905,6 @@ tests = TestList
     testRegex "((?>)+|A)*" []
         ["ZABCDEFG"]
         [Just ["", ""]]
-    ,
-
-
-
-    testRegex "^[a-\\d]" []
-        ["abcde",
-         "-things",
-         "0digit",
-         "*** Failers",
-         "bcdef    "]
-        [Just ["a"],
-         Just ["-"],
-         Just ["0"],
-         Nothing,
-         Nothing]
     ,
 
     testRegex "\\Qabc\\$xyz\\E" []
@@ -4453,5 +4451,43 @@ tests = TestList
          Nothing,
          Nothing]
 
+    -- named capture group tests
+    , -- Handles cases with no capture groups
+    testCaptures 0 "no capture groups" []
+
+    , -- Properly labels capture groups
+    testCaptures 1 "(?<first>first capture group)" [("first", 0)]
+
+    , -- Doesn't return labels for unnamed groups
+    testCaptures 1 "(doesn't return unnamed groups)" []
+
+    , -- Counts but doesn't return unnamed groups
+    testCaptures 3 "(?<one>abc) (def) (?<three>ghi)" [("one", 0), ("three", 2)]
+
+    , -- Doesn't count non-capturing groups
+    testCaptures 1 "(?:abc) (?<named>def)" [("named", 0)]
+
+    , -- Doesn't count named back-references
+    testCaptures 2 "(?<first>abc) (?P=first) (?<second>def)" [("first", 0), ("second", 1)]
+
+    , -- Test alternate group naming syntaxes
+    testCaptures 3 "(?'first'abc) (?P<second>def) (?<third>ghi)" [("first", 0), ("second", 1), ("third", 2)]
+
+    , -- Groups are returned in numeric order
+    testCaptures 3 "(?'c'0) (?P<b>1) (?<a>2)" [("c", 0), ("b", 1), ("a", 2)]
+
+    , -- Handles alternation between groups
+    testCaptures 2 "(?<optionA>abc)|(?<optionB>def)" [("optionA", 0), ("optionB", 1)]
+
+    , -- Labels optional groups
+    testCaptures 2 "(?<named>abc)(?<optional>def)?" [("named", 0), ("optional", 1)]
+
+    , -- Handles nested named groups
+    testCaptures 3 "(?<named>a(?<nested>b)c) (?<unnested>d)" [("named", 0), ("nested", 1), ("unnested", 2)]
+
+    , testLabel "compile failure on duplicate named groups" $
+            TestCase $ (assertEqual' "compile failure on duplicate named groups"
+                         (Left ("two named subpatterns have the same name"))
+                         (compileM "(?<dup>abc) (?<dup>def)" []))
 
  ]
