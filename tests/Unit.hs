@@ -4451,6 +4451,13 @@ tests = TestList
          Nothing,
          Nothing]
 
+    , -- Regression test; ensure "" and empty are treated the same.
+    testRegex ".*" []
+      [ ""
+      , S.empty]
+      [Just [""]
+      ,Just [""]]
+
     -- named capture group tests
     , -- Handles cases with no capture groups
     testCaptures 0 "no capture groups" []
