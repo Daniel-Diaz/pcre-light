@@ -19,7 +19,7 @@ author:          Don Stewart
 maintainer:      Daniel Díaz <dhelta.diaz@gmail.com>
 cabal-version: >= 1.8.0
 build-type:      Simple
-tested-with:     GHC >= 7.10, GHC >= 8.0, GHC >= 8.4, GHC >= 8.6, GHC >= 8.8
+tested-with:     GHC == 7.10, GHC == 8.0, GHC == 8.4, GHC == 8.6, GHC == 8.8
 extra-source-files:
     README.md
     ChangeLog.md
