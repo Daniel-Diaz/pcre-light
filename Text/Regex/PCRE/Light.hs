@@ -208,7 +208,7 @@ compileM str os = unsafePerformIO $
                 err <- peekCString =<< peek errptr
                 return (Left err)
             else do
-                reg <- newForeignPtr finalizerFree pcre_ptr -- release with free()
+                reg <- newForeignPtr c_pcre_free pcre_ptr
                 return (Right (Regex reg str))
 
 -- Possible improvements: an 'IsString' instance could be defined
