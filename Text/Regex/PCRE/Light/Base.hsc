@@ -1,4 +1,5 @@
-{-# LANGUAGE CPP, ForeignFunctionInterface, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE CPP, ForeignFunctionInterface, CApiFFI #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 --------------------------------------------------------------------
 -- |
 -- Module   : Text.Regex.PCRE.Light.Base
@@ -25,6 +26,7 @@ module Text.Regex.PCRE.Light.Base (
         , c_pcre_compile
         , c_pcre_exec
         , c_pcre_fullinfo
+        , c_pcre_free
 
         ------------------------------------------------------------------------
 
@@ -823,4 +825,8 @@ foreign import ccall unsafe "pcre.h pcre_fullinfo"
                     -> PCREInfo
                     -> Ptr a
                     -> IO CInt
+
+-- | Return pcre_free finalizer
+foreign import capi "pcre.h value pcre_free"
+    c_pcre_free :: FinalizerPtr a
 
