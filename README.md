@@ -1,3 +1,6 @@
+_This repository now lives in GitLab:_
+
+https://gitlab.com/daniel-casanueva/pcre-light
 
 # pcre-light library
 
